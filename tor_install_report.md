@@ -24,9 +24,13 @@ Management suspects that some employees may be using TOR browsers to bypass netw
 
 ## Steps Taken
 
-### 1. Searched the `DeviceFileEvents` Table
+### 1. Searched the `DeviceFileEvents` Table for TOR Instalation Artifacts
 
-Searched for any file that had the string "tor" in it and discovered what looks like the user "mathodman" downloaded a TOR installer, did something that resulted in many TOR-related files being copied to the desktop, and the creation of a file called `tor-shopping-list.txt` on the desktop at `2026-01-06T21:18:19.0000000Z`. These events began at `2026-01-06T21:17:43.0000000Z`.
+Initiated the investigation by querying file activity for indicators containing the string “tor” to determine whether TOR-related binaries were downloaded or written to disk on the endpoint.
+
+The results revealed the download of `tor-browser-windows-x86_64-portable-15.0.5.exe` into the user’s Downloads directory, followed by the creation of multiple TOR-related files within a desktop directory. The timestamps indicate rapid file propagation consistent with application extraction or installation activity.
+
+This confirmed that TOR installation artifacts were present on the device and provided the initial timeline anchor for further investigation.
 
 **Query used to locate events:**
 
@@ -42,9 +46,13 @@ DeviceFileEvents
 
 ---
 
-### 1a. Searched the `DeviceFileEvents` Table
+### 2. Searched the `DeviceFileEvents` Table for Post-Execution User Artifacts
 
-Searched ....
+After confirming installation artifacts, I pivoted to identify any user-created files potentially associated with TOR usage. This helps determine intent, staging behavior, or evidence of related activity.
+
+The search identified creation of `tor-shopping-list.txt.txt` shortly after TOR execution events. Telemetry showed file creation and modification followed by deletion, suggesting potential cleanup behavior.
+
+This activity strengthens the assessment that TOR usage was deliberate and not incidental.
 
 **Query used to locate events:**
 
@@ -59,9 +67,13 @@ eviceFileEvents
 
 ---
 
-### 2. Searched the `DeviceProcessEvents` Table
+### 3. Searched the `DeviceProcessEvents` Table for TOR Installation Execution
 
-Searched for any `ProcessCommandLine` that contained the string "tor-browser-windows-x86_64". Based on the logs, an employee on the "lerenah" device ran the file `tor-browser-windows-x86_64-portable-15.0.5.exe` from their Downloads folder, using a command that triggered a silent installation.
+Next, I investigated process execution telemetry to confirm whether the TOR installer was actively executed and to identify command-line parameters used.
+
+The logs confirmed execution of `tor-browser-windows-x86_64-portable-15.0.5.exe` from the Downloads directory. The presence of `/S` in the command line indicates silent installation behavior, which bypasses standard user prompts and reduces visible indicators to the user.
+
+This confirms active installation rather than passive file download.
 
 **Query used to locate event:**
 
@@ -77,9 +89,13 @@ DeviceProcessEvents
 
 ---
 
-### 3. Searched the `DeviceProcessEvents` Table for TOR Browser Execution
+### 4. Searched the `DeviceProcessEvents` Table for TOR Runtime Execution
 
-Searched for any indication that user "lerenah" opened the TOR browser. There was evidence that the offender opened the browser at `Feb 11, 2026 4:58:13 PM`. There were several other instances of `firefox.exe` (TOR) and `tor.exe` that were later spawned.
+Following confirmation of installation, I pivoted to identify runtime execution of TOR-related processes.
+
+Process telemetry showed execution of `tor.exe` and `firefox.exe` from the TOR browser directory shortly after installation activity. The spawning sequence of these processes confirms successful application launch and active TOR browser usage.
+
+This establishes that TOR was not only installed but actively executed on the endpoint.
 
 **Query used to locate events:**
 
@@ -95,9 +111,13 @@ DeviceProcessEvents
 
 ---
 
-### 4. Searched the `DeviceNetworkEvents` Table for TOR Network Connections
+### 5. Searched the `DeviceNetworkEvents` Table for TOR Network Activity
 
-Searched for any indication the TOR browser was used to establish a connection using any of the known TOR ports. At `2026-02-11T22:00:05.2922333Z`, an employee on the "rena-win-10-am-" device successfully established a connection to the remote IP address `64.65.63.65` on port `443`. The connection was initiated by the process `tor.exe`, located in the folder `c:\users\lerenah\desktop\tor browser\browser\torbrowser\tor\tor.exe.
+To validate active TOR network usage, I investigated outbound network telemetry initiated by TOR-related processes.
+
+Network logs confirmed successful external connections initiated by `tor.exe`, including encrypted traffic over port `443` and local proxy communication over port `9150` (loopback address `127.0.0.1`). The timing of these connections directly followed TOR process execution events.
+
+This confirms active participation in the TOR network rather than mere installation or launch.
 
 **Query used to locate events:**
 
@@ -175,12 +195,30 @@ DeviceNetworkEvents
 
 ## Summary
 
-The user `lerenah` on the `rena-win-10-am-` device initiated and completed the installation of the TOR browser. They proceeded to launch the browser, establish connections within the TOR network, and created various files related to TOR on their desktop, including a file named `tor-shopping-list.txt`. This sequence of activities indicates that the user actively installed, configured, and used the TOR browser, likely for anonymous browsing purposes, with possible documentation in the form of the "shopping list" file.
+The investigation confirmed that the user `lerenah` on endpoint `rena-win-10-am-` downloaded, installed, executed, and actively used the TOR browser.
+
+File telemetry confirmed acquisition of the TOR installer and subsequent extraction of TOR-related binaries onto the desktop. Process execution logs verified silent installation behavior followed by runtime execution of `tor.exe` and `firefox.exe`. Network telemetry confirmed outbound encrypted connections consistent with TOR relay communication, including loopback proxy activity on port `9150` and external connections over port `443`.
+
+Additionally, user-created artifacts (`tor-shopping-list.txt`) were observed shortly after TOR execution, followed by deletion activity. This suggests deliberate usage and potential cleanup behavior.
+
+Based on correlated file, process, and network telemetry, this activity represents intentional installation and use of anonymization software in violation of corporate security policy. While no direct evidence of data exfiltration was observed during this investigation window, the use of TOR introduces significant monitoring blind spots and risk exposure.
 ---
 
 ## Response Taken
 
-TOR usage was confirmed on the endpoint `ena-win-10-am-` by the user `lerenah`. The device was isolated, and the user's direct manager was notified.
+Upon confirmation of unauthorized TOR installation and usage:
+
+The endpoint `rena-win-10-am-` was isolated from the network to prevent further anonymized communications.
+
+A review of recent authentication and network activity was conducted to assess potential lateral movement or suspicious access patterns.
+
+The TOR application directory was documented for forensic preservation prior to removal.
+
+The user’s manager and security leadership were notified of policy violations.
+
+A recommendation was made to implement application allowlisting controls to prevent installation of unauthorized anonymization software in the future.
+
+Continuous monitoring was enabled for similar indicators across additional endpoints.
 
 
 ---
